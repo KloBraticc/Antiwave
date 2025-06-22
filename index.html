@@ -82,11 +82,11 @@
   <!-- Auth Section -->
   <section id="auth" class="text-center space-y-4">
     <p class="text-lg">Sign in to build your personalized watch list</p>
-    <div class="flex justify-center gap-4">
-      <button onclick="netlifyIdentity.open('login')" class="ripple bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded shadow flex items-center gap-2 transition">
+    <div class="flex justify-center gap-4 flex-wrap">
+      <button onclick="netlifyIdentity.open('login')" class="ripple bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded shadow flex items-center gap-2 transition" type="button">
         <i data-lucide="log-in"></i> Login
       </button>
-      <button onclick="netlifyIdentity.open('signup')" class="ripple bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded shadow flex items-center gap-2 transition">
+      <button onclick="netlifyIdentity.open('signup')" class="ripple bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded shadow flex items-center gap-2 transition" type="button">
         <i data-lucide="user-plus"></i> Sign Up
       </button>
     </div>
@@ -98,7 +98,7 @@
     <!-- Welcome & Logout -->
     <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
       <h2 class="text-3xl font-semibold text-indigo-700 dark:text-indigo-300">Welcome, <span id="username"></span></h2>
-      <button onclick="logout()" class="ripple bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded shadow flex items-center gap-2 transition">
+      <button onclick="logout()" class="ripple bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded shadow flex items-center gap-2 transition" type="button">
         <i data-lucide="log-out"></i> Logout
       </button>
     </div>
@@ -160,322 +160,438 @@
 </div>
 
 <!-- Modal -->
-<div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm z-50 p-4">
+<div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm z-50 p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title" tabindex="-1">
   <div class="bg-white dark:bg-gray-900 p-6 rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto relative">
-    <button onclick="closeModal()" aria-label="Close modal" class="absolute top-4 right-4 text-red-600 hover:text-red-700 transition text-xl font-bold">✕</button>
+    <button onclick="closeModal()" aria-label="Close modal" class="absolute top-4 right-4 text-red-600 hover:text-red-700 transition text-xl font-bold" type="button">✕</button>
     <h2 id="modal-title" class="text-3xl font-bold mb-3 text-indigo-700 dark:text-indigo-400"></h2>
     <img id="modal-image" alt="Anime cover" class="rounded mb-4 w-full max-h-96 object-contain shadow" />
-    <p id="modal-description" class="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed"></p>
-    <div id="modal-video" class="aspect-w-16 aspect-h-9 mb-4">
-      <iframe id="trailer-video" class="w-full h-64 rounded shadow-lg" src="" frameborder="0" allowfullscreen></iframe>
+    <p id="modal-description" class="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line"></p>
+    <div id="modal-video" class="aspect-w-16 aspect-h-9 mb-4 hidden">
+      <iframe id="trailer-video" class="w-full h-64 rounded shadow-lg" src="" frameborder="0" allowfullscreen allow="autoplay; encrypted-media"></iframe>
     </div>
     <div class="flex justify-end gap-4">
-      <button onclick="addToWatchList()" class="ripple bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded shadow flex items-center gap-2 transition">
-        <i data-lucide="plus-circle"></i> Add to Watch List
+      <button onclick="addToWatchList()" class="ripple bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded shadow flex items-center gap-2 transition" type="button">
+        <i data-lucide="plus"></i> Add to Watch List
+      </button>
+      <button onclick="closeModal()" class="ripple bg-gray-400 hover:bg-gray-500 text-gray-900 px-6 py-2 rounded shadow flex items-center gap-2 transition" type="button">
+        <i data-lucide="x"></i> Close
       </button>
     </div>
   </div>
 </div>
 
 <script>
-  // Initialize Lucide icons
-  lucide.createIcons();
-
-  // Netlify Identity init
-  netlifyIdentity.on('init', user => {
-    if(user) showApp(user);
-  });
-  netlifyIdentity.on('login', user => {
-    showApp(user);
-    netlifyIdentity.close();
-  });
-  netlifyIdentity.on('logout', () => {
-    hideApp();
-  });
-  if(!netlifyIdentity.initialized) {
-    netlifyIdentity.init();
-    netlifyIdentity.initialized = true;
-  }
-
-  // Elements
-  const authEl = document.getElementById('auth');
-  const appEl = document.getElementById('app');
-  const usernameEl = document.getElementById('username');
-  const recommendedListEl = document.getElementById('recommended-list');
-  const animeListEl = document.getElementById('anime-list');
-  const watchListEl = document.getElementById('watch-list');
-  const modalEl = document.getElementById('modal');
-  const modalTitle = document.getElementById('modal-title');
-  const modalImage = document.getElementById('modal-image');
-  const modalDesc = document.getElementById('modal-description');
-  const trailerVideo = document.getElementById('trailer-video');
-  const darkToggleBtn = document.getElementById('darkToggle');
-
-  // State
+  // Global variables
   let currentUser = null;
-  let currentAnime = null;
   let watchList = [];
-  let searchPage = 1;
-  let totalPages = 1;
+  let currentPage = 1;
   let lastSearchParams = {};
 
-  // Show/hide app based on auth
-  function showApp(user) {
-    currentUser = user;
-    authEl.classList.add('hidden');
-    appEl.classList.remove('hidden');
-    usernameEl.textContent = user.user_metadata?.full_name || user.email || 'User';
-    loadRecommended();
-    loadWatchList();
-  }
-  function hideApp() {
-    currentUser = null;
-    authEl.classList.remove('hidden');
-    appEl.classList.add('hidden');
-    clearLists();
-  }
-  function logout() {
-    netlifyIdentity.logout();
+  // Elements
+  const authSection = document.getElementById('auth');
+  const appSection = document.getElementById('app');
+  const usernameEl = document.getElementById('username');
+  const darkToggleBtn = document.getElementById('darkToggle');
+  const searchInput = document.getElementById('search');
+  const genreSelect = document.getElementById('genre');
+  const seasonSelect = document.getElementById('season');
+  const yearInput = document.getElementById('year');
+  const sortSelect = document.getElementById('sort');
+  const animeListEl = document.getElementById('anime-list');
+  const paginationEl = document.getElementById('pagination');
+  const recommendedListEl = document.getElementById('recommended-list');
+  const watchListEl = document.getElementById('watch-list');
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modal-title');
+  const modalImage = document.getElementById('modal-image');
+  const modalDescription = document.getElementById('modal-description');
+  const modalVideo = document.getElementById('modal-video');
+  const trailerVideo = document.getElementById('trailer-video');
+
+  let modalCurrentAnime = null;
+
+  // Initialization
+  window.onload = () => {
+    lucide.createIcons();
+    initializeAuth();
+    initializeDarkMode();
+  };
+
+  // -----------------------------
+  // NETLIFY IDENTITY AUTH LOGIC
+  // -----------------------------
+
+  function initializeAuth() {
+    if(!window.netlifyIdentity) {
+      alert('Netlify Identity Widget failed to load.');
+      return;
+    }
+    window.netlifyIdentity.on('init', user => {
+      currentUser = user;
+      updateUI();
+    });
+    window.netlifyIdentity.on('login', user => {
+      currentUser = user;
+      saveWatchListFromStorage();
+      updateUI();
+      window.netlifyIdentity.close();
+    });
+    window.netlifyIdentity.on('logout', () => {
+      currentUser = null;
+      watchList = [];
+      updateUI();
+    });
+    window.netlifyIdentity.init();
   }
 
-  // Load recommended airing anime
+  function updateUI() {
+    if(currentUser) {
+      authSection.classList.add('hidden');
+      appSection.classList.remove('hidden');
+      usernameEl.textContent = currentUser.user_metadata.full_name || currentUser.email || "User";
+      loadWatchListFromStorage();
+      loadRecommended();
+      // Clear previous search results:
+      animeListEl.innerHTML = '';
+      paginationEl.innerHTML = '';
+    } else {
+      authSection.classList.remove('hidden');
+      appSection.classList.add('hidden');
+    }
+  }
+
+  function logout() {
+    if(window.netlifyIdentity) {
+      window.netlifyIdentity.logout();
+    }
+  }
+
+  // -----------------------------
+  // DARK MODE TOGGLE
+  // -----------------------------
+
+  function initializeDarkMode() {
+    // Check stored preference
+    const darkPref = localStorage.getItem('darkMode');
+    if(darkPref === 'enabled') {
+      document.documentElement.classList.add('dark');
+      darkToggleBtn.innerHTML = '<i data-lucide="sun"></i> Light Mode';
+    } else {
+      darkToggleBtn.innerHTML = '<i data-lucide="moon"></i> Dark Mode';
+    }
+    lucide.createIcons();
+
+    darkToggleBtn.addEventListener('click', () => {
+      document.documentElement.classList.toggle('dark');
+      if(document.documentElement.classList.contains('dark')) {
+        localStorage.setItem('darkMode', 'enabled');
+        darkToggleBtn.innerHTML = '<i data-lucide="sun"></i> Light Mode';
+      } else {
+        localStorage.setItem('darkMode', 'disabled');
+        darkToggleBtn.innerHTML = '<i data-lucide="moon"></i> Dark Mode';
+      }
+      lucide.createIcons();
+    });
+  }
+
+  // -----------------------------
+  // SEARCH LOGIC
+  // -----------------------------
+
+  async function searchAnime(page = 1) {
+    const query = searchInput.value.trim();
+    const genre = genreSelect.value;
+    const season = seasonSelect.value.toLowerCase();
+    const year = yearInput.value.trim();
+    const sort = sortSelect.value;
+
+    if(!query && !genre && !season && !year) {
+      alert("Please enter a search term or select a filter.");
+      return;
+    }
+
+    lastSearchParams = { query, genre, season, year, sort };
+    currentPage = page;
+
+    animeListEl.innerHTML = `<p class="col-span-full text-center text-gray-500 dark:text-gray-400">Loading...</p>`;
+    paginationEl.innerHTML = '';
+
+    try {
+      let url = `https://api.jikan.moe/v4/anime?page=${page}&limit=12&order_by=score&sort=${sort}`;
+
+      if(query) url += `&q=${encodeURIComponent(query)}`;
+      if(genre) url += `&genres=${encodeURIComponent(genre)}`;
+      if(season) url += `&season=${season}`;
+      if(year) url += `&year=${year}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if(!data.data || data.data.length === 0) {
+        animeListEl.innerHTML = `<p class="col-span-full text-center text-red-500">No results found.</p>`;
+        return;
+      }
+
+      renderAnimeList(data.data);
+      renderPagination(data.pagination);
+    } catch (error) {
+      animeListEl.innerHTML = `<p class="col-span-full text-center text-red-500">Error fetching results. Please try again later.</p>`;
+      console.error(error);
+    }
+  }
+
+  function renderAnimeList(animeArray) {
+    animeListEl.innerHTML = '';
+    animeArray.forEach(anime => {
+      animeListEl.appendChild(createAnimeCard(anime));
+    });
+    lucide.createIcons();
+  }
+
+  function renderPagination(pagination) {
+    paginationEl.innerHTML = '';
+
+    const current = pagination.current_page;
+    const last = pagination.last_visible_page;
+
+    // Previous button
+    const prevBtn = document.createElement('button');
+    prevBtn.className = 'ripple bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed';
+    prevBtn.textContent = 'Previous';
+    prevBtn.disabled = current === 1;
+    prevBtn.onclick = () => searchAnime(current - 1);
+    paginationEl.appendChild(prevBtn);
+
+    // Page numbers (show max 5 pages for simplicity)
+    let startPage = Math.max(1, current - 2);
+    let endPage = Math.min(last, current + 2);
+
+    for(let i = startPage; i <= endPage; i++) {
+      const pageBtn = document.createElement('button');
+      pageBtn.className = `ripple px-3 py-1 rounded border ${i === current ? 'bg-indigo-700 text-white' : 'bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-400 border-indigo-600 dark:border-indigo-400'}`;
+      pageBtn.textContent = i;
+      if(i !== current) {
+        pageBtn.onclick = () => searchAnime(i);
+      } else {
+        pageBtn.disabled = true;
+      }
+      paginationEl.appendChild(pageBtn);
+    }
+
+    // Next button
+    const nextBtn = document.createElement('button');
+    nextBtn.className = 'ripple bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed';
+    nextBtn.textContent = 'Next';
+    nextBtn.disabled = current === last;
+    nextBtn.onclick = () => searchAnime(current + 1);
+    paginationEl.appendChild(nextBtn);
+
+    lucide.createIcons();
+  }
+
+  // -----------------------------
+  // RECOMMENDED AIRING ANIME
+  // -----------------------------
+
   async function loadRecommended() {
     recommendedListEl.innerHTML = `<p class="col-span-full text-center text-gray-500 dark:text-gray-400">Loading...</p>`;
     try {
+      // Top airing anime from Jikan API
       const res = await fetch('https://api.jikan.moe/v4/top/anime?filter=airing&limit=6');
       const data = await res.json();
-      if(!data.data) throw new Error("No data");
+
+      if(!data.data || data.data.length === 0) {
+        recommendedListEl.innerHTML = `<p class="col-span-full text-center text-red-500">Failed to load recommendations.</p>`;
+        return;
+      }
+
       recommendedListEl.innerHTML = '';
       data.data.forEach(anime => {
         recommendedListEl.appendChild(createAnimeCard(anime));
       });
+      lucide.createIcons();
     } catch {
       recommendedListEl.innerHTML = `<p class="col-span-full text-center text-red-500">Failed to load recommendations.</p>`;
     }
   }
 
-  // Search anime with filters & pagination
-  async function searchAnime(page=1) {
-    const query = document.getElementById('search').value.trim();
-    const genre = document.getElementById('genre').value;
-    const season = document.getElementById('season').value;
-    const year = document.getElementById('year').value.trim();
-    const sort = document.getElementById('sort').value;
+  // -----------------------------
+  // CREATE ANIME CARD
+  // -----------------------------
 
-    if(!query && !genre && !season && !year) {
-      alert('Please enter a search term or select at least one filter.');
-      return;
-    }
-
-    animeListEl.innerHTML = `<p class="col-span-full text-center text-gray-500 dark:text-gray-400">Searching...</p>`;
-    document.getElementById('pagination').innerHTML = '';
-
-    // Save search params for pagination
-    lastSearchParams = { query, genre, season, year, sort };
-    searchPage = page;
-
-    // Genre to ID map
-    const genreMap = {
-      'Action': 1,
-      'Adventure': 2,
-      'Comedy': 4,
-      'Drama': 8,
-      'Fantasy': 10,
-      'Romance': 22,
-      'Sci-Fi': 24
-    };
-
-    // Build URL with filters
-    let url = `https://api.jikan.moe/v4/anime?page=${page}&limit=12&order_by=${sort === 'score' ? 'score' : 'start_date'}&sort=${sort === 'asc' ? 'asc' : 'desc'}`;
-
-    if(query) url += `&q=${encodeURIComponent(query)}`;
-    if(genre && genreMap[genre]) url += `&genres=${genreMap[genre]}`;
-    if(season) url += `&season=${season.toLowerCase()}`;
-    if(year) url += `&year=${year}`;
-
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      if(!data.data || data.data.length === 0) {
-        animeListEl.innerHTML = `<p class="col-span-full text-center text-gray-500 dark:text-gray-400">No results found.</p>`;
-        return;
-      }
-      animeListEl.innerHTML = '';
-      data.data.forEach(anime => {
-        animeListEl.appendChild(createAnimeCard(anime));
-      });
-
-      // Pagination
-      totalPages = data.pagination.last_visible_page || 1;
-      renderPagination();
-    } catch {
-      animeListEl.innerHTML = `<p class="col-span-full text-center text-red-500">Search failed. Try again later.</p>`;
-    }
-  }
-
-  // Render pagination buttons
-  function renderPagination() {
-    const container = document.getElementById('pagination');
-    container.innerHTML = '';
-
-    if(totalPages <= 1) return;
-
-    // Prev button
-    const prevBtn = document.createElement('button');
-    prevBtn.textContent = 'Prev';
-    prevBtn.disabled = searchPage <= 1;
-    prevBtn.className = `ripple px-4 py-2 rounded shadow ${prevBtn.disabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`;
-    prevBtn.onclick = () => searchAnime(searchPage - 1);
-    container.appendChild(prevBtn);
-
-    // Current page display
-    const pageInfo = document.createElement('span');
-    pageInfo.textContent = `Page ${searchPage} of ${totalPages}`;
-    pageInfo.className = 'px-4 py-2 text-indigo-600 dark:text-indigo-300';
-    container.appendChild(pageInfo);
-
-    // Next button
-    const nextBtn = document.createElement('button');
-    nextBtn.textContent = 'Next';
-    nextBtn.disabled = searchPage >= totalPages;
-    nextBtn.className = `ripple px-4 py-2 rounded shadow ${nextBtn.disabled ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`;
-    nextBtn.onclick = () => searchAnime(searchPage + 1);
-    container.appendChild(nextBtn);
-  }
-
-  // Create anime card element
   function createAnimeCard(anime) {
-    const li = document.createElement('div');
-    li.tabIndex = 0;
-    li.setAttribute('role', 'button');
-    li.setAttribute('aria-label', `Open details for ${anime.title}`);
-    li.className = 'anime-card cursor-pointer bg-white dark:bg-gray-800 rounded-lg shadow p-3 flex flex-col gap-2 hover:shadow-lg transition';
-    li.onclick = () => openModal(anime);
-    li.onkeypress = e => { if(e.key === 'Enter') openModal(anime); };
+    const card = document.createElement('div');
+    card.className = 'anime-card bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer flex flex-col';
+    card.tabIndex = 0;
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-label', `View details for ${anime.title}`);
+
+    card.onclick = () => openModal(anime);
+    card.onkeypress = (e) => { if(e.key === 'Enter') openModal(anime); };
 
     const img = document.createElement('img');
-    // Use large images if available, fallback otherwise
-    img.src = anime.images?.jpg.large_image_url || anime.images?.jpg.image_url || '';
-    img.alt = anime.title;
-    img.className = 'rounded-md w-full h-52 object-cover shadow-sm';
+    img.src = anime.images?.jpg?.image_url || anime.images?.webp?.image_url || '';
+    img.alt = anime.title + " cover";
+    img.className = 'w-full object-cover h-52';
+
+    const info = document.createElement('div');
+    info.className = 'p-4 flex-grow flex flex-col justify-between';
 
     const title = document.createElement('h4');
     title.textContent = anime.title;
-    title.className = 'font-semibold text-lg truncate';
+    title.className = 'font-semibold text-lg text-indigo-700 dark:text-indigo-400 mb-2 truncate';
 
-    const info = document.createElement('p');
-    info.textContent = `Score: ${anime.score || 'N/A'} | Episodes: ${anime.episodes || '?'} | ${anime.season ? anime.season.charAt(0).toUpperCase() + anime.season.slice(1) : 'Unknown Season'} ${anime.year || ''}`;
-    info.className = 'text-sm text-gray-600 dark:text-gray-400 truncate';
+    const score = document.createElement('p');
+    score.innerHTML = `<i data-lucide="star" class="inline-block mr-1 text-yellow-400"></i> Score: ${anime.score ?? "N/A"}`;
+    score.className = 'text-sm mb-2 text-gray-700 dark:text-gray-300';
 
-    li.appendChild(img);
-    li.appendChild(title);
-    li.appendChild(info);
+    const episodes = document.createElement('p');
+    episodes.textContent = `Episodes: ${anime.episodes ?? "?"}`;
+    episodes.className = 'text-sm text-gray-600 dark:text-gray-400';
 
-    return li;
+    info.appendChild(title);
+    info.appendChild(score);
+    info.appendChild(episodes);
+
+    card.appendChild(img);
+    card.appendChild(info);
+
+    return card;
   }
 
-  // Modal open & close
+  // -----------------------------
+  // MODAL LOGIC
+  // -----------------------------
+
   function openModal(anime) {
-    currentAnime = anime;
+    modalCurrentAnime = anime;
+
     modalTitle.textContent = anime.title;
-    modalImage.src = anime.images?.jpg.large_image_url || anime.images?.jpg.image_url || '';
-    modalImage.alt = anime.title;
-    modalDesc.textContent = anime.synopsis || "No description available.";
+    modalImage.src = anime.images?.jpg?.large_image_url || anime.images?.jpg?.image_url || '';
+    modalImage.alt = anime.title + " cover";
+    modalDescription.textContent = anime.synopsis || "No description available.";
+
+    // Trailer iframe
     if(anime.trailer?.embed_url) {
-      trailerVideo.src = anime.trailer.embed_url;
-      trailerVideo.parentElement.style.display = 'block';
+      modalVideo.classList.remove('hidden');
+      trailerVideo.src = anime.trailer.embed_url + '?autoplay=1&mute=1';
+      trailerVideo.setAttribute('title', anime.title + ' trailer');
     } else {
+      modalVideo.classList.add('hidden');
       trailerVideo.src = '';
-      trailerVideo.parentElement.style.display = 'none';
+      trailerVideo.removeAttribute('title');
     }
-    modalEl.classList.remove('hidden');
-    modalEl.focus();
-  }
-  function closeModal() {
-    modalEl.classList.add('hidden');
-    trailerVideo.src = '';
+
+    modal.classList.remove('hidden');
+    modal.focus();
+
+    // Trap focus inside modal (basic)
+    document.addEventListener('keydown', trapModalFocus);
   }
 
-  // Watchlist load, save, render
-  function loadWatchList() {
+  function closeModal() {
+    modal.classList.add('hidden');
+    trailerVideo.src = '';
+    modalCurrentAnime = null;
+    document.removeEventListener('keydown', trapModalFocus);
+  }
+
+  // Trap focus inside modal for accessibility
+  function trapModalFocus(e) {
+    if(e.key === 'Tab') {
+      const focusableElements = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      if(e.shiftKey) {
+        if(document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        }
+      } else {
+        if(document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    }
+    if(e.key === 'Escape') {
+      closeModal();
+    }
+  }
+
+  // -----------------------------
+  // WATCH LIST LOGIC (localStorage per user)
+  // -----------------------------
+
+  function loadWatchListFromStorage() {
     if(!currentUser) return;
-    const saved = localStorage.getItem('watchlist_' + currentUser.email);
-    watchList = saved ? JSON.parse(saved) : [];
+    const key = `watchlist_${currentUser.id}`;
+    const stored = localStorage.getItem(key);
+    watchList = stored ? JSON.parse(stored) : [];
     renderWatchList();
   }
-  function saveWatchList() {
+
+  function saveWatchListToStorage() {
     if(!currentUser) return;
-    localStorage.setItem('watchlist_' + currentUser.email, JSON.stringify(watchList));
+    const key = `watchlist_${currentUser.id}`;
+    localStorage.setItem(key, JSON.stringify(watchList));
   }
+
+  function addToWatchList() {
+    if(!modalCurrentAnime) return;
+    // Prevent duplicates
+    if(watchList.some(a => a.mal_id === modalCurrentAnime.mal_id)) {
+      alert('This anime is already in your watch list!');
+      return;
+    }
+    watchList.push({
+      mal_id: modalCurrentAnime.mal_id,
+      title: modalCurrentAnime.title,
+      url: modalCurrentAnime.url,
+    });
+    saveWatchListToStorage();
+    renderWatchList();
+    alert(`Added "${modalCurrentAnime.title}" to your watch list.`);
+    closeModal();
+  }
+
+  function removeFromWatchList(mal_id) {
+    watchList = watchList.filter(a => a.mal_id !== mal_id);
+    saveWatchListToStorage();
+    renderWatchList();
+  }
+
   function renderWatchList() {
     watchListEl.innerHTML = '';
     if(watchList.length === 0) {
       watchListEl.innerHTML = '<li class="text-gray-500 dark:text-gray-400">Your watch list is empty.</li>';
       return;
     }
-    watchList.forEach((anime, idx) => {
+    watchList.forEach(anime => {
       const li = document.createElement('li');
-      li.className = 'flex justify-between items-center gap-4 py-1';
-      const title = document.createElement('span');
-      title.textContent = anime.title;
-      title.className = 'truncate max-w-xs';
+      li.className = 'flex justify-between items-center mb-1';
+
+      const link = document.createElement('a');
+      link.href = anime.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = anime.title;
+      link.className = 'text-indigo-700 dark:text-indigo-400 hover:underline flex-grow truncate';
+
       const removeBtn = document.createElement('button');
-      removeBtn.innerHTML = '<i data-lucide="trash-2"></i>';
+      removeBtn.type = 'button';
+      removeBtn.className = 'ripple ml-4 text-red-600 hover:text-red-800 transition';
       removeBtn.setAttribute('aria-label', `Remove ${anime.title} from watch list`);
-      removeBtn.className = 'text-red-600 hover:text-red-800 transition';
-      removeBtn.onclick = () => {
-        watchList.splice(idx, 1);
-        saveWatchList();
-        renderWatchList();
-      };
-      li.appendChild(title);
+      removeBtn.innerHTML = `<i data-lucide="trash-2"></i>`;
+      removeBtn.onclick = () => removeFromWatchList(anime.mal_id);
+
+      li.appendChild(link);
       li.appendChild(removeBtn);
+
       watchListEl.appendChild(li);
-      lucide.createIcons(); // Refresh icons for dynamic buttons
     });
-  }
-
-  // Add current anime to watchlist
-  function addToWatchList() {
-    if(!currentAnime || !currentUser) return alert('Select an anime and login first.');
-    if(watchList.find(a => a.mal_id === currentAnime.mal_id)) {
-      alert('Anime already in watch list.');
-      return;
-    }
-    watchList.push({ mal_id: currentAnime.mal_id, title: currentAnime.title });
-    saveWatchList();
-    renderWatchList();
-    alert(`Added "${currentAnime.title}" to your watch list!`);
-  }
-
-  // Clear lists on logout
-  function clearLists() {
-    recommendedListEl.innerHTML = '';
-    animeListEl.innerHTML = '';
-    watchListEl.innerHTML = '';
-    document.getElementById('pagination').innerHTML = '';
-  }
-
-  // Dark mode toggle
-  darkToggleBtn.onclick = () => {
-    document.body.classList.toggle('dark-mode');
-    // Change button text & icon
-    if(document.body.classList.contains('dark-mode')) {
-      darkToggleBtn.innerHTML = '<i data-lucide="sun"></i> Light Mode';
-    } else {
-      darkToggleBtn.innerHTML = '<i data-lucide="moon"></i> Dark Mode';
-    }
     lucide.createIcons();
-  };
-
-  // Start with recommended airing anime visible but app hidden until login
-  loadRecommended();
-
-  // Accessibility: close modal with ESC
-  window.addEventListener('keydown', e => {
-    if(e.key === 'Escape' && !modalEl.classList.contains('hidden')) closeModal();
-  });
-
+  }
 </script>
 
 </body>
