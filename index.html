@@ -315,14 +315,7 @@
       watchListEl.appendChild(li);
     });
   }
-
-  // Initialize icons
-  lucide.createIcons();
-
-if (!netlifyIdentity.initialized) {
-  netlifyIdentity.init();
-  netlifyIdentity.initialized = true;
-}
+lucide.createIcons();
 
 netlifyIdentity.on('init', user => {
   if (user) {
@@ -330,7 +323,8 @@ netlifyIdentity.on('init', user => {
   }
 });
 
-
+netlifyIdentity.init();
+  
 </script>
 
 </body>
