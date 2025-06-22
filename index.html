@@ -319,8 +319,17 @@
   // Initialize icons
   lucide.createIcons();
 
-  // Auto-init netlifyIdentity widget
+if (!netlifyIdentity.initialized) {
   netlifyIdentity.init();
+  netlifyIdentity.initialized = true;
+}
+
+netlifyIdentity.on('init', user => {
+  if (user) {
+    showApp(user);
+  }
+});
+
 
 </script>
 
